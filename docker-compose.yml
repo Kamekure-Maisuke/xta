@@ -11,5 +11,12 @@ services:
     environment:
       POSTGRES_USER: tod
       POSTGRES_PASSWORD: test
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - "redis_data:/data"
 volumes:
   db_data:
+  redis_data:
