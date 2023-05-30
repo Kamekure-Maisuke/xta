@@ -10,6 +10,10 @@
 
 <body>
   <h1>xta</h1>
+  <form hx-post="/todos">
+    <input type="text" name="title" />
+    <button type="submit">登録</button>
+  </form>
   <p id="content" hx-get="/todos" hx-trigger="load" hx-target="#content"></p>
 </body>
 
