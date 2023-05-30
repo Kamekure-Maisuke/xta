@@ -1,0 +1,15 @@
+version: '3.8'
+services:
+  postgres:
+    restart: unless-stopped
+    image: postgres:15-alpine
+    ports:
+      - "5430:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d
+    environment:
+      POSTGRES_USER: tod
+      POSTGRES_PASSWORD: test
+volumes:
+  db_data:
