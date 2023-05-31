@@ -172,6 +172,16 @@ router
     await client.end();
     await redis.set("todos", JSON.stringify(array_result.rows));
     ctx.response.redirect("/");
+  })
+  .post("/logout", async (ctx) => {
+    const sessionId = await ctx.cookies.get("session");
+    if (!sessionId) {
+      ctx.response.redirect("/login");
+      return;
+    }
+    await redis.del(`${sessionPrefix}${sessionId}`);
+    await ctx.cookies.delete("session");
+    ctx.response.redirect("/login");
   });
 
 // Middle
