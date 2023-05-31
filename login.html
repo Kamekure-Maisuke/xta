@@ -11,13 +11,14 @@
   <h1>ログイン画面</h1>
   <form method="post" action="/login">
     <label for="username">ユーザー名</label>
-    <input type="text" name="username" />
+    <input type="text" name="username" required />
     <br />
     <label for="password">パスワード</label>
-    <input type="password" name="password" />
+    <input type="password" name="password" required />
     <br />
     <button type="submit">ログイン</button>
   </form>
+  <a href="/register">未登録の方はこちら</a>
 </body>
 
 </html>
