@@ -5,12 +5,20 @@ dbの起動
 ```shell
 docker compose up -d
 
-## 接続情報
-# host : localhost
-# port : 5430
-# user : 任意
-# password : 任意
-# database : sample
+# postgress接続情報
+## host : localhost
+## port : 5430
+## user : 任意
+## password : 任意
+## database : sample
+
+# dragonfly接続情報
+## host : localhost
+## port : 6379
+
+# redisinsight起動
+## host : localhost
+## port : 8001
 ```
 
 app serverの起動
