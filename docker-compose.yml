@@ -11,12 +11,20 @@ services:
     environment:
       POSTGRES_USER: tod
       POSTGRES_PASSWORD: test
-  redis:
-    image: redis:alpine
+  dragonfly:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly
     ports:
       - "6379:6379"
     volumes:
-      - "redis_data:/data"
+      - "dragonfly_data:/data"
+  redisinsight:
+    image: redislabs/redisinsight:latest
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./redisinsight:/db
+    depends_on:
+      - dragonfly
 volumes:
   db_data:
-  redis_data:
+  dragonfly_data:
