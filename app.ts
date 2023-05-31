@@ -2,6 +2,7 @@ import { Application, Router } from "https://deno.land/x/oak@v12.5.0/mod.ts";
 import { Client } from "https://deno.land/x/postgres@v0.17.0/mod.ts";
 import { connect } from "https://deno.land/x/redis@v0.29.4/mod.ts";
 import { crypto } from "https://deno.land/std@0.190.0/crypto/mod.ts";
+import { createPasswordHash, isPassword } from "./util.ts";
 
 // DB
 const config = "postgres://tod:test@localhost:5430/sample";
@@ -64,11 +65,13 @@ router
     if (!username || !password) { // 入力がなければ終了。
       return;
     }
+    const hashPassword = await createPasswordHash(`${username}-${password}`);
+    console.log(hashPassword);
 
     // DB確認
     await client.connect();
     const result = await client
-      .queryObject`SELECT id FROM users WHERE username = ${username} AND password = ${password}`;
+      .queryObject`SELECT id FROM users WHERE username = ${username} AND password = ${hashPassword}`;
     await client.end();
     if (!result.rowCount) { // なければ同一画面にリダイレクト
       ctx.response.redirect("/login");
@@ -83,6 +86,63 @@ router
     );
     ctx.cookies.set("session", sessionId);
     ctx.response.redirect("/");
+  })
+  .get("/register", async (ctx) => {
+    // ログイン処理
+    const sessionId = await ctx.cookies.get("session");
+
+    // ログイン済みチェック
+    if (sessionId) {
+      const userId = await redis.get(`${sessionPrefix}${sessionId}`);
+      if (userId) {
+        ctx.response.redirect("/");
+        return;
+      }
+    }
+
+    // 新規ユーザー登録画面
+    const text = await Deno.readTextFile("./register.html");
+    ctx.response.headers.set("Content-Type", "text/html");
+    ctx.response.body = text;
+  })
+  .post("/register", async (ctx) => {
+    // ユーザー登録処理
+    const body = ctx.request.body({ type: "form" });
+    const value = await body.value;
+    const username = value.get("username")?.trim();
+    const password = value.get("password")?.trim();
+    if (!username || !password) { // 入力がなければ終了。
+      return;
+    }
+
+    // DB接続
+    await client.connect();
+
+    // 存在チェック
+    const result = await client
+      .queryObject`SELECT id FROM users WHERE username = ${username}`;
+    if (result.rowCount) {
+      console.log("入力されたユーザー名はすでに存在しています。");
+      ctx.response.redirect("/register");
+      return;
+    }
+
+    // 形式チェック
+    if (!isPassword(password)) {
+      console.log(
+        "パスワードは「10文字以上64文字以下」で使用できる文字は「アルファベット大文字小文字・数字・ピリオド・スラッシュ・クエスチョン」です。",
+      );
+      ctx.response.redirect("/register");
+      return;
+    }
+
+    // 登録処理
+    const hashPassword = await createPasswordHash(`${username}-${password}`);
+    await client
+      .queryArray`INSERT INTO users (username, password) VALUES (${username}, ${hashPassword})`;
+    await client.end();
+    console.log("正常にユーザーが登録されました。");
+    ctx.response.redirect("/login");
   })
   .get("/todos", async (ctx) => {
     // todo: 認証チェック
