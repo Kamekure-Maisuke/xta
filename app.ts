@@ -294,6 +294,20 @@ router
 
     // 正常ならadmin表示
     ctx.response.redirect("/admin");
+  })
+  .post("/admin/logout", async (ctx) => {
+    // 未ログインならadmin login画面へredirect
+    const sessionId = await ctx.cookies.get("session");
+    if (!sessionId) {
+      ctx.response.redirect("/admin/login");
+      return;
+    }
+
+    // cookie及びredisのセッション情報削除
+    await redis.del(`${sessionPrefix}${sessionId}`);
+    await ctx.cookies.delete("session");
+
+    ctx.response.redirect("/admin/login");
   });
 
 // Middle
