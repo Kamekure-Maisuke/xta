@@ -27,34 +27,28 @@ const router = new Router();
 // ルーター : 一般系
 router
   .get("/", async (ctx) => {
-    // ログイン処理
+    // 未ログインならlogin画面へredirect
     const sessionId = await ctx.cookies.get("session");
-
-    // ログイン済みチェック
     if (!sessionId) {
       ctx.response.redirect("/login");
       return;
     }
-
     const sessionData = await redis.get(
       `${sessionPrefix}${sessionId}`,
     );
-
     if (!sessionData) {
       ctx.response.redirect("/login");
       return;
     }
 
-    // ログイン済みなら初期ページ表示
+    // ログイン済みならindexページ表示
     const text = await Deno.readTextFile("./index.html");
     ctx.response.headers.set("Content-Type", "text/html");
     ctx.response.body = text;
   })
   .get("/login", async (ctx) => {
-    // ログイン処理
+    // ログイン済みならindexページへredirect
     const sessionId = await ctx.cookies.get("session");
-
-    // ログイン済みチェック
     if (sessionId) {
       const sessionData = await redis.get(
         `${sessionPrefix}${sessionId}`,
@@ -64,26 +58,35 @@ router
         return;
       }
     }
+
+    // 未ログインならloginページ表示
     const text = await Deno.readTextFile("./login.html");
     ctx.response.headers.set("Content-Type", "text/html");
     ctx.response.body = text;
   })
   .post("/login", async (ctx) => {
+    // フォーム中身取得
     const body = ctx.request.body({ type: "form" });
     const value = await body.value;
     const username = value.get("username")?.trim();
     const password = value.get("password")?.trim();
-    if (!username || !password) { // 入力がなければ終了。
+
+    // 入力がないか全て空白であればNG
+    if (!username || !password) {
       return;
     }
+
+    // 入力パスワードをハッシュ化
     const hashPassword = await createPasswordHash(`${username}-${password}`);
 
-    // DB確認
+    // 既存ユーザー確認
     await client.connect();
     const result = await client
       .queryObject`SELECT id, level FROM users WHERE name = ${username} AND password = ${hashPassword}`;
     await client.end();
-    if (!result.rowCount) { // なければ同一画面にリダイレクト
+
+    // なければlogin画面にリダイレクト
+    if (!result.rowCount) {
       ctx.response.redirect("/login");
       return;
     }
@@ -95,13 +98,13 @@ router
       JSON.stringify(result.rows[0]),
     );
     ctx.cookies.set("session", sessionId);
+
+    // 全て正常ならindexへredirect
     ctx.response.redirect("/");
   })
   .get("/register", async (ctx) => {
-    // ログイン処理
+    // ログイン済みならindexページへredirect
     const sessionId = await ctx.cookies.get("session");
-
-    // ログイン済みチェック
     if (sessionId) {
       const sessionData = await redis.get(
         `${sessionPrefix}${sessionId}`,
@@ -112,26 +115,27 @@ router
       }
     }
 
-    // 新規ユーザー登録画面
+    // 未ログインならregisterページ表示
     const text = await Deno.readTextFile("./register.html");
     ctx.response.headers.set("Content-Type", "text/html");
     ctx.response.body = text;
   })
   .post("/register", async (ctx) => {
-    // ユーザー登録処理
+    // フォーム中身
     const body = ctx.request.body({ type: "form" });
     const value = await body.value;
     const username = value.get("username")?.trim();
     const password = value.get("password")?.trim();
     const level = USER_LEVEL.GENELAL;
-    if (!username || !password) { // 入力がなければ終了。
+
+    // 入力がなければ終了
+    if (!username || !password) {
       return;
     }
 
-    // DB接続
     await client.connect();
 
-    // 存在チェック
+    // 既存ユーザーチェック
     const result = await client
       .queryObject`SELECT id FROM users WHERE name = ${username}`;
     if (result.rowCount) {
@@ -140,7 +144,7 @@ router
       return;
     }
 
-    // 形式チェック
+    // パスワード形式チェック。あっていなければregister画面へredirect
     if (!isPassword(password)) {
       console.log(
         "パスワードは「10文字以上64文字以下」で使用できる文字は「アルファベット大文字小文字・数字・ピリオド・スラッシュ・クエスチョン」です。",
@@ -149,11 +153,13 @@ router
       return;
     }
 
-    // 登録処理
+    // ユーザー登録処理。
     const hashPassword = await createPasswordHash(`${username}-${password}`);
     await client
       .queryArray`INSERT INTO users (name, password, level) VALUES (${username}, ${hashPassword}, ${level})`;
     await client.end();
+
+    // 正常登録後はloginへredirect
     console.log("正常にユーザーが登録されました。");
     ctx.response.redirect("/login");
   })
@@ -187,13 +193,17 @@ router
     ctx.response.redirect("/");
   })
   .post("/logout", async (ctx) => {
+    // 未ログインならlogin画面へredirect
     const sessionId = await ctx.cookies.get("session");
     if (!sessionId) {
       ctx.response.redirect("/login");
       return;
     }
+
+    // cookie及びredisのセッション情報削除
     await redis.del(`${sessionPrefix}${sessionId}`);
     await ctx.cookies.delete("session");
+
     ctx.response.redirect("/login");
   });
 
@@ -202,67 +212,74 @@ router
  */
 router
   .get("/admin", async (ctx) => {
-    // ログイン処理
+    // 未ログインならadminのlogin画面へredirect
     const sessionId = await ctx.cookies.get("session");
-
-    // ログイン済みチェック
     if (!sessionId) {
       ctx.response.redirect("/admin/login");
       return;
     }
 
+    // ログインユーザー情報取得
     const sessionData = await redis.get(
       `${sessionPrefix}${sessionId}`,
     ) as string;
     const userSession: UserSession = JSON.parse(sessionData);
 
-    // セッションデータがないか、マネージャー未満の人はNG
+    // ログインユーザーがマネージャー未満の人はNG
     if (!sessionData || userSession.level < USER_LEVEL.MANAGE) {
       ctx.response.redirect("/admin/login");
       return;
     }
 
-    // ログイン済みなら初期ページ表示
+    // マネージャー以上ならadminページ表示
     const text = await Deno.readTextFile("./admin.html");
     ctx.response.headers.set("Content-Type", "text/html");
     ctx.response.body = text;
   })
   .get("/admin/login", async (ctx) => {
-    // ログイン処理
+    // ログイン済みならindexページへredirect
     const sessionId = await ctx.cookies.get("session");
-
-    // ログイン済みチェック
     if (sessionId) {
+      // ログインユーザー情報取得
       const sessionData = await redis.get(
         `${sessionPrefix}${sessionId}`,
       ) as string;
       const userSession: UserSession = JSON.parse(sessionData);
-      // セッションデータがあってマネージャーレベルの人
+      // ログインユーザーがマネージャー以上の人はadminへredirect
       if (sessionData && userSession.level >= USER_LEVEL.MANAGE) {
         ctx.response.redirect("/admin");
         return;
       }
     }
+
+    // 未ログインならadmin loginページ表示
     const text = await Deno.readTextFile("./admin_login.html");
     ctx.response.headers.set("Content-Type", "text/html");
     ctx.response.body = text;
   })
   .post("/admin/login", async (ctx) => {
+    // フォーム中身取得
     const body = ctx.request.body({ type: "form" });
     const value = await body.value;
     const username = value.get("username")?.trim();
     const password = value.get("password")?.trim();
-    if (!username || !password) { // 入力がなければ終了。
+
+    // 入力がなければ終了。
+    if (!username || !password) {
       return;
     }
+
+    // 入力パスワードのハッシュ化
     const hashPassword = await createPasswordHash(`${username}-${password}`);
 
-    // DB確認
+    // 既存ユーザー確認
     await client.connect();
     const result = await client
       .queryObject`SELECT id FROM users WHERE name = ${username} AND password = ${hashPassword} AND level >= ${USER_LEVEL.MANAGE}`;
     await client.end();
-    if (!result.rowCount) { // なければ同一画面にリダイレクト
+
+    // なければadmin login画面にリダイレクト
+    if (!result.rowCount) {
       ctx.response.redirect("/admin/login");
       return;
     }
@@ -274,6 +291,8 @@ router
       JSON.stringify(result.rows[0]),
     );
     ctx.cookies.set("session", sessionId);
+
+    // 正常ならadmin表示
     ctx.response.redirect("/admin");
   });
 
