@@ -1,4 +1,8 @@
-import { Application, Router } from "https://deno.land/x/oak@v12.5.0/mod.ts";
+import {
+  Application,
+  isHttpError,
+  Router,
+} from "https://deno.land/x/oak@v12.5.0/mod.ts";
 import { Client } from "https://deno.land/x/postgres@v0.17.0/mod.ts";
 import { connect } from "https://deno.land/x/redis@v0.29.4/mod.ts";
 import { crypto } from "https://deno.land/std@0.190.0/crypto/mod.ts";
@@ -23,6 +27,23 @@ type UserSession = {
 // APP
 const app = new Application();
 const router = new Router();
+
+// Middle
+app.use(async (context, next) => {
+  try {
+    await next();
+  } catch (err) {
+    if (isHttpError(err)) {
+      context.response.status = err.status;
+    } else {
+      context.response.status = 500;
+    }
+    context.response.body = { error: err.message };
+    context.response.type = "json";
+  }
+});
+app.use(router.routes());
+app.use(router.allowedMethods());
 
 // ルーター : 一般系
 router
@@ -310,9 +331,13 @@ router
     ctx.response.redirect("/admin/login");
   });
 
-// Middle
-app.use(router.routes());
-app.use(router.allowedMethods());
+// 404
+app.use((context) => {
+  context.response.status = 404;
+  context.response.body = {
+    error: "お探しのページがみつかりません。",
+  };
+});
 
 // Start
 await app.listen({ port: 8000 });
