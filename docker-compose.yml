@@ -9,14 +9,27 @@ services:
       - db_data:/var/lib/postgresql/data
       - ./initdb:/docker-entrypoint-initdb.d
     environment:
-      POSTGRES_USER: tod
-      POSTGRES_PASSWORD: test
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
   dragonfly:
     image: docker.dragonflydb.io/dragonflydb/dragonfly
     ports:
       - "6379:6379"
     volumes:
       - "dragonfly_data:/data"
+  minio:
+    container_name: minio
+    command: ['server', '/data', '--console-address', ':9001']
+    environment:
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+    image: quay.io/minio/minio:latest
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - minio_data:/data
+    restart: unless-stopped
   redisinsight:
     image: redislabs/redisinsight:latest
     ports:
@@ -28,3 +41,4 @@ services:
 volumes:
   db_data:
   dragonfly_data:
+  minio_data:
