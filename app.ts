@@ -12,7 +12,10 @@ import { USER_LEVEL } from "./config.ts";
 import { S3 } from "npm:@aws-sdk/client-s3";
 
 // DB
-const config = "postgres://tod:test@localhost:5430/sample";
+const postgresUser = Deno.env.get("POSTGRES_USER");
+const postgresPassword = Deno.env.get("POSTGRES_PASSWORD");
+const config =
+  `postgres://${postgresUser}:${postgresPassword}@localhost:5430/sample`;
 const client = new Client(config);
 
 // redis + session
@@ -229,17 +232,31 @@ router
   .get("/images", async (ctx) => {
     // PNG画像一覧取得
     const result = await s3.listObjectsV2({ Bucket: "sample" });
-    const images = result.Contents?.filter((content) => {
+    const contents = result.Contents;
+    if (!contents) {
+      ctx.response.body = {
+        error: "not objects",
+      };
+      return;
+    }
+    const images = contents.filter((content) => {
       if (!content.Key) return false;
       return /png$/.test(content.Key);
-    }).map((image) => {
+    });
+    if (!images.length) {
+      ctx.response.body = {
+        error: "not png objects",
+      };
+      return;
+    }
+
+    ctx.response.body = images.map((image) => {
       return {
         name: image.Key,
         size: image.Size,
         lastModified: image.LastModified,
       };
     });
-    ctx.response.body = images;
   })
   .post("/logout", async (ctx) => {
     // 未ログインならlogin画面へredirect
