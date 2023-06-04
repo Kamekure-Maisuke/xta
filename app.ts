@@ -3,11 +3,13 @@ import {
   isHttpError,
   Router,
 } from "https://deno.land/x/oak@v12.5.0/mod.ts";
+import "https://deno.land/std@0.190.0/dotenv/load.ts";
 import { Client } from "https://deno.land/x/postgres@v0.17.0/mod.ts";
 import { connect } from "https://deno.land/x/redis@v0.29.4/mod.ts";
 import { crypto } from "https://deno.land/std@0.190.0/crypto/mod.ts";
 import { createPasswordHash, isPassword } from "./util.ts";
 import { USER_LEVEL } from "./config.ts";
+import { S3 } from "npm:@aws-sdk/client-s3";
 
 // DB
 const config = "postgres://tod:test@localhost:5430/sample";
@@ -23,6 +25,17 @@ type UserSession = {
   id: number;
   level: number;
 };
+
+// MinIO
+const s3 = new S3({
+  region: "ap-northeast-1",
+  endpoint: "http://localhost:9000",
+  forcePathStyle: true,
+  credentials: {
+    accessKeyId: Deno.env.get("MINIO_ACCESS_KEY") || "",
+    secretAccessKey: Deno.env.get("MINIO_SECRET_KEY") || "",
+  },
+});
 
 // APP
 const app = new Application();
@@ -212,6 +225,21 @@ router
     await client.end();
     await redis.set("todos", JSON.stringify(array_result.rows));
     ctx.response.redirect("/");
+  })
+  .get("/images", async (ctx) => {
+    // PNG画像一覧取得
+    const result = await s3.listObjectsV2({ Bucket: "sample" });
+    const images = result.Contents?.filter((content) => {
+      if (!content.Key) return false;
+      return /png$/.test(content.Key);
+    }).map((image) => {
+      return {
+        name: image.Key,
+        size: image.Size,
+        lastModified: image.LastModified,
+      };
+    });
+    ctx.response.body = images;
   })
   .post("/logout", async (ctx) => {
     // 未ログインならlogin画面へredirect
