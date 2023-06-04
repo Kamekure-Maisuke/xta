@@ -7,7 +7,7 @@ services:
       - "5430:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
-      - ./initdb:/docker-entrypoint-initdb.d
+      - ./init_data/pg:/docker-entrypoint-initdb.d
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -21,8 +21,8 @@ services:
     container_name: minio
     command: ['server', '/data', '--console-address', ':9001']
     environment:
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     image: quay.io/minio/minio:latest
     ports:
       - '9000:9000'
@@ -30,6 +30,26 @@ services:
     volumes:
       - minio_data:/data
     restart: unless-stopped
+  mc:
+    image: minio/mc
+    container_name: mc
+    depends_on:
+      - minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    entrypoint:
+      - "/bin/sh"
+      - "-c"
+    command:
+      - "until (/usr/bin/mc alias set myminio http://minio:9000 $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD) do
+             echo 'Waiting to start minio...' && sleep 1;
+         done;
+         /usr/bin/mc mb myminio/sample;
+         /usr/bin/mc cp init_data/* myminio/sample;
+         exit 0;"
+    volumes:
+      - ./init_data/minio:/init_data
   redisinsight:
     image: redislabs/redisinsight:latest
     ports:

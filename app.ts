@@ -35,8 +35,8 @@ const s3 = new S3({
   endpoint: "http://localhost:9000",
   forcePathStyle: true,
   credentials: {
-    accessKeyId: Deno.env.get("MINIO_ACCESS_KEY") || "",
-    secretAccessKey: Deno.env.get("MINIO_SECRET_KEY") || "",
+    accessKeyId: Deno.env.get("MINIO_ROOT_USER") || "",
+    secretAccessKey: Deno.env.get("MINIO_ROOT_PASSWORD") || "",
   },
 });
 
