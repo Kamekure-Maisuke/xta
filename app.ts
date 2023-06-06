@@ -9,7 +9,11 @@ import { connect } from "https://deno.land/x/redis@v0.29.4/mod.ts";
 import { crypto } from "https://deno.land/std@0.190.0/crypto/mod.ts";
 import { createPasswordHash, isPassword } from "./util.ts";
 import { USER_LEVEL } from "./config.ts";
-import { S3 } from "npm:@aws-sdk/client-s3";
+import {
+  ListObjectsV2Command,
+  PutObjectCommand,
+  S3Client,
+} from "npm:@aws-sdk/client-s3";
 
 // DB
 const postgresUser = Deno.env.get("POSTGRES_USER");
@@ -30,7 +34,7 @@ type UserSession = {
 };
 
 // MinIO
-const s3 = new S3({
+const s3 = new S3Client({
   region: "ap-northeast-1",
   endpoint: "http://localhost:9000",
   forcePathStyle: true,
@@ -200,23 +204,29 @@ router
     console.log("正常にユーザーが登録されました。");
     ctx.response.redirect("/login");
   })
-  .get("/todos", async (ctx) => {
+  .get("/api/todos", async (ctx) => {
     // todo: 認証チェック
-
     const todos = await redis.get("todos");
     if (todos) {
       ctx.response.body = todos;
     } else {
       await client.connect();
-      const array_result = await client.queryObject("SELECT * FROM todos");
+      const array_result = await client.queryObject(
+        "SELECT * FROM todos",
+      );
       await client.end();
-      ctx.response.body = array_result.rows;
-      await redis.set("todos", JSON.stringify(array_result.rows));
+      const todos = JSON.stringify(array_result.rows);
+      const body = {
+        size: array_result.rowCount,
+        data: JSON.parse(todos),
+      };
+      ctx.response.body = body;
+      await redis.set("todos", JSON.stringify(body));
     }
   })
-  .post("/todos", async (ctx) => {
-    const body = ctx.request.body({ type: "form" });
-    const value = await body.value;
+  .post("/api/todos", async (ctx) => {
+    const form = ctx.request.body({ type: "form" });
+    const value = await form.value;
     const title = value.get("title")?.trim();
     if (!title) {
       return;
@@ -226,12 +236,38 @@ router
       .queryArray`INSERT INTO todos (title) VALUES (${title})`;
     const array_result = await client.queryObject("SELECT * FROM todos");
     await client.end();
-    await redis.set("todos", JSON.stringify(array_result.rows));
+    const todos = JSON.stringify(array_result.rows);
+    const body = {
+      size: array_result.rowCount,
+      data: JSON.parse(todos),
+    };
+    await redis.set("todos", JSON.stringify(body));
     ctx.response.redirect("/");
   })
-  .get("/images", async (ctx) => {
+  .delete("/api/todos/:id", async (ctx) => {
+    const id = ctx.params.id;
+
+    // idで削除
+    await client.connect();
+    await client.queryArray`DELETE FROM todos WHERE id = ${id}`;
+
+    // redisにセット
+    const array_result = await client.queryObject("SELECT * FROM todos");
+    await client.end();
+    const todos = JSON.stringify(array_result.rows);
+    const body = {
+      size: array_result.rowCount,
+      data: JSON.parse(todos),
+    };
+    await redis.set("todos", JSON.stringify(body));
+  })
+  .get("/api/images", async (ctx) => {
     // PNG画像一覧取得
-    const result = await s3.listObjectsV2({ Bucket: "sample" });
+    const result = await s3.send(
+      new ListObjectsV2Command({
+        Bucket: "sample",
+      }),
+    );
     const contents = result.Contents;
     if (!contents) {
       ctx.response.body = {

@@ -5,10 +5,32 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>xta</title>
+  <script src="https://unpkg.com/htmx.org"></script>
+  <script src="https://unpkg.com/htmx.org/dist/ext/client-side-templates.js"></script>
+  <script src="https://unpkg.com/mustache@latest"></script>
 </head>
 
 <body>
   <h1>xta</h1>
+  <div hx-ext="client-side-templates">
+    <button hx-get="/api/todos" hx-swap="innerHTML" hx-target="#content" mustache-template="todos"
+      hx-trigger="load, click">
+      Click Me
+    </button>
+
+    <div id="content"></div>
+
+    <template id="todos">
+      <ul>
+        {{#data}}
+        <li>
+          {{title}}
+        </li>
+        {{/data}}
+      </ul>
+    </template>
+  </div>
+  <br />
   <form action="/logout" method="post">
     <button type="submit">ログアウト</button>
   </form>
