@@ -13,4 +13,21 @@ CREATE TABLE users (
   level INT NOT NULL
 );
 
-INSERT INTO todos (title) VALUES ('タスク1');
+INSERT INTO todos
+  (title)
+VALUES
+  ('タスク1'),
+  ('タスク2'),
+  ('タスク3'),
+  ('タスク4'),
+  ('タスク5'),
+  ('タスク6'),
+  ('タスク7'),
+  ('タスク8'),
+  ('タスク9'),
+  ('タスク10'),
+  ('タスク11'),
+  ('タスク12'),
+  ('タスク13'),
+  ('タスク14'),
+  ('タスク15');
