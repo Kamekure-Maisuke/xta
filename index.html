@@ -23,6 +23,8 @@
         {{#data}}
         <li>
           {{title}}
+          <button hx-delete="/api/todos/{{id}}" hx-swap="delete" hx-target="closest li"
+            hx-confirm="本当に削除しますか？">削除</button>
         </li>
         {{/data}}
       </ul>

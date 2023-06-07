@@ -268,6 +268,7 @@ router
       data: JSON.parse(todos),
     };
     await redis.set("todos", JSON.stringify(body));
+    ctx.response.status = 200;
   })
   .get("/api/images", async (ctx) => {
     // PNG画像一覧取得
