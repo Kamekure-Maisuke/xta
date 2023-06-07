@@ -13,10 +13,8 @@
 <body>
   <h1>xta</h1>
   <div hx-ext="client-side-templates">
-    <button hx-get="/api/todos" hx-swap="innerHTML" hx-target="#content" mustache-template="todos"
-      hx-trigger="load, click">
-      Click Me
-    </button>
+    <input type="search" name="search" hx-get="/api/todos" hx-swap="innerHTML" hx-target="#content"
+      mustache-template="todos" hx-trigger="load, keyup changed delay:500ms, search">
 
     <div id="content"></div>
 

@@ -3,17 +3,14 @@ import {
   isHttpError,
   Router,
 } from "https://deno.land/x/oak@v12.5.0/mod.ts";
+import { getQuery } from "https://deno.land/x/oak@v12.5.0/helpers.ts";
 import "https://deno.land/std@0.190.0/dotenv/load.ts";
 import { Client } from "https://deno.land/x/postgres@v0.17.0/mod.ts";
 import { connect } from "https://deno.land/x/redis@v0.29.4/mod.ts";
 import { crypto } from "https://deno.land/std@0.190.0/crypto/mod.ts";
 import { createPasswordHash, isPassword } from "./util.ts";
 import { USER_LEVEL } from "./config.ts";
-import {
-  ListObjectsV2Command,
-  PutObjectCommand,
-  S3Client,
-} from "npm:@aws-sdk/client-s3";
+import { ListObjectsV2Command, S3Client } from "npm:@aws-sdk/client-s3";
 
 // DB
 const postgresUser = Deno.env.get("POSTGRES_USER");
@@ -206,9 +203,20 @@ router
   })
   .get("/api/todos", async (ctx) => {
     // todo: 認証チェック
+    const params = getQuery(ctx);
+    const search = params.search;
     const todos = await redis.get("todos");
     if (todos) {
-      ctx.response.body = todos;
+      const todoJson = JSON.parse(todos);
+      if (!search) {
+        ctx.response.body = todoJson;
+        return;
+      }
+      const filterTodos = {
+        limit: todoJson.limit,
+        data: todoJson.data.filter((d) => d.title.includes(search)),
+      };
+      ctx.response.body = filterTodos;
     } else {
       await client.connect();
       const array_result = await client.queryObject(
