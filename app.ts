@@ -5,6 +5,7 @@ import {
 } from "https://deno.land/x/oak@v12.5.0/mod.ts";
 import { getQuery } from "https://deno.land/x/oak@v12.5.0/helpers.ts";
 import "https://deno.land/std@0.190.0/dotenv/load.ts";
+import { renderFileToString } from "https://deno.land/x/dejs@0.10.3/mod.ts";
 import { Client } from "https://deno.land/x/postgres@v0.17.0/mod.ts";
 import { connect } from "https://deno.land/x/redis@v0.29.4/mod.ts";
 import { crypto } from "https://deno.land/std@0.190.0/crypto/mod.ts";
@@ -27,6 +28,7 @@ const redis = await connect({
 const sessionPrefix = "session:";
 type UserSession = {
   id: number;
+  name: string;
   level: number;
 };
 
@@ -80,9 +82,12 @@ router
     }
 
     // ログイン済みならindexページ表示
-    const text = await Deno.readTextFile("./index.html");
+    // 未ログインならloginページ表示
+    const userSession: UserSession = JSON.parse(sessionData);
     ctx.response.headers.set("Content-Type", "text/html");
-    ctx.response.body = text;
+    ctx.response.body = await renderFileToString(`${Deno.cwd()}/index.html`, {
+      login_name: userSession.name,
+    });
   })
   .get("/login", async (ctx) => {
     // ログイン済みならindexページへredirect
@@ -98,9 +103,10 @@ router
     }
 
     // 未ログインならloginページ表示
-    const text = await Deno.readTextFile("./login.html");
-    ctx.response.headers.set("Content-Type", "text/html");
-    ctx.response.body = text;
+    ctx.request.url.pathname = "login.html";
+    await ctx.send({
+      root: Deno.cwd(),
+    });
   })
   .post("/login", async (ctx) => {
     // フォーム中身取得
@@ -120,7 +126,7 @@ router
     // 既存ユーザー確認
     await client.connect();
     const result = await client
-      .queryObject`SELECT id, level FROM users WHERE name = ${username} AND password = ${hashPassword}`;
+      .queryObject`SELECT id, name, level FROM users WHERE name = ${username} AND password = ${hashPassword}`;
     await client.end();
 
     // なければlogin画面にリダイレクト
@@ -154,9 +160,10 @@ router
     }
 
     // 未ログインならregisterページ表示
-    const text = await Deno.readTextFile("./register.html");
-    ctx.response.headers.set("Content-Type", "text/html");
-    ctx.response.body = text;
+    ctx.request.url.pathname = "register.html";
+    await ctx.send({
+      root: Deno.cwd(),
+    });
   })
   .post("/register", async (ctx) => {
     // フォーム中身
@@ -343,9 +350,10 @@ router
     }
 
     // マネージャー以上ならadminページ表示
-    const text = await Deno.readTextFile("./admin.html");
-    ctx.response.headers.set("Content-Type", "text/html");
-    ctx.response.body = text;
+    ctx.request.url.pathname = "admin.html";
+    await ctx.send({
+      root: Deno.cwd(),
+    });
   })
   .get("/admin/login", async (ctx) => {
     // ログイン済みならindexページへredirect
@@ -386,7 +394,7 @@ router
     // 既存ユーザー確認
     await client.connect();
     const result = await client
-      .queryObject`SELECT id FROM users WHERE name = ${username} AND password = ${hashPassword} AND level >= ${USER_LEVEL.MANAGE}`;
+      .queryObject`SELECT id, name, level FROM users WHERE name = ${username} AND password = ${hashPassword} AND level >= ${USER_LEVEL.MANAGE}`;
     await client.end();
 
     // なければadmin login画面にリダイレクト

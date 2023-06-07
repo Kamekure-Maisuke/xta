@@ -11,29 +11,30 @@
 </head>
 
 <body>
-  <h1>xta</h1>
-  <div hx-ext="client-side-templates">
-    <input type="search" name="search" hx-get="/api/todos" hx-swap="innerHTML" hx-target="#content"
-      mustache-template="todos" hx-trigger="load, keyup changed delay:500ms, search">
+  <%= login_name %>さん、ようこそ
+    <h1>xta</h1>
+    <div hx-ext="client-side-templates">
+      <input type="search" name="search" hx-get="/api/todos" hx-swap="innerHTML" hx-target="#content"
+        mustache-template="todos" hx-trigger="load, keyup changed delay:500ms, search">
 
-    <div id="content"></div>
+      <div id="content"></div>
 
-    <template id="todos">
-      <ul>
-        {{#data}}
-        <li>
-          {{title}}
-          <button hx-delete="/api/todos/{{id}}" hx-swap="delete" hx-target="closest li"
-            hx-confirm="本当に削除しますか？">削除</button>
-        </li>
-        {{/data}}
-      </ul>
-    </template>
-  </div>
-  <br />
-  <form action="/logout" method="post">
-    <button type="submit">ログアウト</button>
-  </form>
+      <template id="todos">
+        <ul>
+          {{#data}}
+          <li>
+            {{title}}
+            <button hx-delete="/api/todos/{{id}}" hx-swap="delete" hx-target="closest li"
+              hx-confirm="本当に削除しますか？">削除</button>
+          </li>
+          {{/data}}
+        </ul>
+      </template>
+    </div>
+    <br />
+    <form action="/logout" method="post">
+      <button type="submit">ログアウト</button>
+    </form>
 </body>
 
 </html>
